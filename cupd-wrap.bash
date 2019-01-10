@@ -159,5 +159,5 @@ launch_syu
 fancy_print "Listing all the .pacnew and .pacsave files in /"
 ls -lt $(find / 2>/dev/null -name '*.pacnew' -or -name '*.pacsave')
 
-fancy_print "Launching Trizen AUR update"
-trizen -Sua
+# fancy_print "Launching Trizen AUR update"
+# trizen -Sua
