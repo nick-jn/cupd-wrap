@@ -10,10 +10,13 @@
 #
 # Prerequisites: checkupdates (included in pacman-contrib), bc, xmllint.
 
+
+# TODO: rewrite most of it using safer and saner bash
+
 readonly DEPS="checkupdates bc xmllint"
 
 # checks the prerequisites, if failed, we exit
-function check_prereq {
+check_prereq() {
     OUT=""
     flag=0
     for i in $DEPS; do
@@ -33,7 +36,7 @@ function check_prereq {
 }
 
 # wrapper for the checkupdate
-function cupd_wrap {
+cupd_wrap() {
     printf "Fetching data, please wait...\n\n"
 
     CULIST=$(checkupdates)
@@ -92,21 +95,31 @@ function cupd_wrap {
 }
 
 # news fetcher
-function get_news {
-    # nicked from some forum, not an ideal solution, but seems to work,
-    # formatting has been a little bit improved here
-    curl -s https://www.archlinux.org/feeds/news/ | \
+get_news() {
+    NEWS="$(curl -s https://www.archlinux.org/feeds/news/ | \
     xmllint --xpath //item/title\ \|\ //item/pubDate /dev/stdin | \
-    sed -r -e "s:<title>([^<]*?)</title><pubDate>([^<]*?)</pubDate>:\2 | \1\n:g" | \
+    sed -n 's:.*>\(.*\)<.*:\1:p' | \
     sed -r "s:&gt;:>:" | \
     sed -r "s:&lt;:<:" | \
-    tr -s " " | \
-    cut -d " " --complement -f 1,5,6 | \
-    head -n5 # the number determines the number of recent news items
+    sed 's/^[\t ]*//g' | \
+    tr -s " ")"
+
+    IFS=$'\n'
+    declare -i count=0
+    for i in $NEWS; do
+        if ((count % 2 == 0)); then
+            item="$i"
+        else
+            printf "%s | %s\n" "$(date --date="$i" +%F)" "$item"
+        fi
+
+        ((++count))
+    done
+    unset IFS
 }
 
 # internal for fancy_print
-function fancy_line {
+fancy_line() {
     len=$1
     while ((len > 0))
     do
@@ -120,7 +133,7 @@ function fancy_line {
 # =============
 # PASSED_STRING
 # =============
-function fancy_print {
+fancy_print() {
     s=$1
     printf "\n"
     fancy_line "${#s}"
@@ -129,7 +142,7 @@ function fancy_print {
 }
 
 # prompts to launch pacman -Syu
-function launch_syu {
+launch_syu() {
     printf "\nLaunch sudo pacman -Syu? (y/N) "
     read -r CONT
     if [ ! "$CONT" = "y" ] && [ ! "$CONT" = "Y" ]; then
@@ -138,6 +151,18 @@ function launch_syu {
     fi
     printf "\n"
     sudo pacman -Syu
+}
+
+main() {
+    cupd_wrap
+
+    fancy_print "https://www.archlinux.org/news"
+    get_news
+
+    launch_syu
+
+    fancy_print "Listing all the .pacnew and .pacsave files in /"
+    ls -lt "$(find / -name '*.pacnew' -or -name '*.pacsave 2>/dev/null')"
 }
 
 ################################################################################
@@ -149,15 +174,7 @@ if [ "$1" = "news" ]; then
     exit
 fi
 
-cupd_wrap
-
-fancy_print "https://www.archlinux.org/news"
-get_news
-
-launch_syu
-
-fancy_print "Listing all the .pacnew and .pacsave files in /"
-ls -lt $(find / 2>/dev/null -name '*.pacnew' -or -name '*.pacsave')
+main
 
 # fancy_print "Launching Trizen AUR update"
 # trizen -Sua
