@@ -162,7 +162,7 @@ main() {
     launch_syu
 
     fancy_print "Listing all the .pacnew and .pacsave files in /"
-    ls -lt "$(find / -name '*.pacnew' -or -name '*.pacsave 2>/dev/null')"
+    find / -name '*.pacnew' -or -name '*.pacsave' 2>/dev/null | xargs -0 ls -lt 
 }
 
 ################################################################################
