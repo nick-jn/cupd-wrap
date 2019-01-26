@@ -86,7 +86,7 @@ cupd_wrap() {
 
     # extract the relevant info from pacman -Si
     local psi_out
-    psi_out="$(echo $package_names | xargs pacman -Si)"
+    psi_out="$(echo "$package_names" | xargs pacman -Si)"
     psi_out="$(echo "$psi_out" | grep -E 'Repository|Download Size' | \
               awk -F ": " '{if (NR%2 == 0) printf "%s\n", $2; else printf "%s ", $2}')"
 
@@ -182,7 +182,7 @@ main() {
 
     cupd_wrap "$@"
     get_news
-    #launch_syu
+    launch_syu
     find_pacfiles
 
     if [[ ! $(command -v "trizen") == "" ]]; then
