@@ -203,10 +203,6 @@ cupd_wrap() {
                grep -E 'Repository|Download Size' | \
                awk -F ": " '{if (NR%2 == 0) printf "%s\n", $2; else printf "%s ", $2}')"
 
-    # psi_out="$(echo "$package_names" | xargs pacman -Si)"
-    # psi_out="$(echo "$psi_out" | grep -E 'Repository|Download Size' | \
-              # awk -F ": " '{if (NR%2 == 0) printf "%s\n", $2; else printf "%s ", $2}')"
-
     # combine pacman -Si info with the output of checkupdates
     local comb_out
     comb_out="$(paste <(echo "$psi_out") <(echo "$cupd_out") | column -t | tr -s " ")"
