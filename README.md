@@ -23,7 +23,7 @@ of the package database via pacman -Sy.
               locate - use locate to search for *.pacsave/*.pacnew files in /
     
     Examples:
-    cupd-wrap news=normal syu=nil pacfiles=locate
+    cupd-wrap syu=noprompt pacfiles=locate
     cupd-wrap news=nil syu=nil
 
 Prerequisites:

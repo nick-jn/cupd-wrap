@@ -1,20 +1,13 @@
 #!/usr/bin/env bash
-
-# This is a simple script that refines the output of checkupdates and
-# grabs the latest news from the Arch RSS news feed. The idea is to
-# have some extra info before commiting to grabbing a fresh copy
-# of the package database via pacman -Sy.
+# Wrapper for Arch Linux's checkupdate tool
 #
-# You can also pass it a news argument (i.e., "bash cupd-wrap.bash news")
-# just to get the news.
+# This script refines the output of checkupdates and grabs the latest news from
+# the Arch RSS news feed. The idea is to have some extra info before commiting to
+# grabbing a fresh copy of the package database via pacman -Sy.
 #
-# Prerequisites: checkupdates (included in pacman-contrib), xmllint (in libxml2).
-
-# Arguments:
-# news="only,nil"
-# syu="noprompt,nil"
-# pacfiles="find,locate,nil"
-# payattention="$PACNAMES"
+# Prerequisites:
+# ==============
+# checkupdates (in pacman-contrib), xmllint (in libxml2).
 
 # global flags for the program
 F_NEWS="normal"  # (normal, only, nil)
@@ -37,7 +30,7 @@ print_help() {
     printf "          find   - use find to search for *.pacsave/*.pacnew files in /\n"
     printf "          locate - use locate to search for *.pacsave/*.pacnew files in /\n\n"
     printf "Examples:\n"
-    printf "cupd-wrap news=normal syu=nil pacfiles=locate\n"
+    printf "cupd-wrap syu=noprompt pacfiles=locate\n"
     printf "cupd-wrap news=nil syu=nil\n"
 
     exit 0
@@ -184,13 +177,7 @@ cupd_wrap() {
     printf "Fetching data, please wait...\n\n"
 
     local cupd_out
-
-    #if [[ $1 == "test" ]]; then
-    #    cupd_out="$(printf "vim\nbash\nemacs\nlinux\nkitty")"
-    #else
-        cupd_out=$(checkupdates)
-    #fi
-
+    cupd_out=$(checkupdates)
     if [[ $cupd_out = "" ]]; then
         echo "No new packages"
         exit
@@ -207,13 +194,18 @@ cupd_wrap() {
     done
     unset IFS
 
-    echo "$pacnum new packages found"
+    printf "%d new packages found\n" "$pacnum"
 
     # extract the relevant info from pacman -Si
     local psi_out
-    psi_out="$(echo "$package_names" | xargs pacman -Si)"
-    psi_out="$(echo "$psi_out" | grep -E 'Repository|Download Size' | \
-              awk -F ": " '{if (NR%2 == 0) printf "%s\n", $2; else printf "%s ", $2}')"
+    psi_out="$(echo "$package_names" | \
+               xargs pacman -Si | \
+               grep -E 'Repository|Download Size' | \
+               awk -F ": " '{if (NR%2 == 0) printf "%s\n", $2; else printf "%s ", $2}')"
+
+    # psi_out="$(echo "$package_names" | xargs pacman -Si)"
+    # psi_out="$(echo "$psi_out" | grep -E 'Repository|Download Size' | \
+              # awk -F ": " '{if (NR%2 == 0) printf "%s\n", $2; else printf "%s ", $2}')"
 
     # combine pacman -Si info with the output of checkupdates
     local comb_out
@@ -306,17 +298,18 @@ launch_syu() {
 }
 
 find_pacfiles() {
+    fancy_print "Listing all the .pacnew and .pacsave files in /"
     if [[ $1 == "find" ]]; then
-        fancy_print "Listing all the .pacnew and .pacsave files in /"
-        find / \( -name '*.pacnew' -or -name '*.pacsave' \) -print0 2>/dev/null | xargs -0 ls -lt 
+        find / \( -name '*.pacnew' -or -name '*.pacsave' \) -print0 2>/dev/null | \
+        xargs -0 ls -lt 
     elif [[ $1 == "locate" ]]; then
-        updatedb && locate --existing --regex "\.pac(new|save)$"
+        updatedb
+        locate --existing --regex "\.pac(new|save)$" | \
+        xargs ls -lt 
     fi
 }
 
 main() {
-    check_prereq
-
     if [[ $F_NEWS == "only" ]]; then
         get_news && exit 0
     fi
@@ -326,19 +319,19 @@ main() {
     case $F_NEWS in
         "normal") get_news;;
         "nil")    ;;
-    esac    
+    esac
 
     case $F_SYU in
-        "prompt")   launch_syu "prompt" && printf "\n";;
-        "noprompt") launch_syu && printf "\n";;
+        "prompt")   launch_syu "prompt";;
+        "noprompt") launch_syu;;
         "nil")      ;;
-    esac    
+    esac
 
     case $F_PACFILES in
         "find")   find_pacfiles "find" && printf "\n";;
         "locate") find_pacfiles "locate" && printf "\n";;
         "nil")    ;;
-    esac    
+    esac
 
     exit 0
 }
@@ -346,4 +339,5 @@ main() {
 ################################################################################
 
 parse_main_args "$@"
+check_prereq
 main
