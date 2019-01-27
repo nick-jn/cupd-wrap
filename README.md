@@ -32,7 +32,7 @@ checkupdates (in pacman-contrib), xmllint (in libxml2).
 
 Serving suggestions:
 ====================
-With "news-only" it can be used as just a news fetcher.
+With "news=only" it can be used as just a news fetcher.
 
 Passing "news=nil syu=nil" will print an enriched output of checkupdates. You can easily
 grep for package names, repo names, number of packages, versions, total download size.
