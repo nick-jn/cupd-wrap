@@ -227,6 +227,8 @@ cupd_wrap() {
         cursize=$(echo "$i" | cut -d ' ' -f 2,3)
         if [[ $(echo "$cursize" | awk '{print $2}') = "KiB" ]]; then
             cursize="$(echo "$cursize" | awk '{printf "%f", $1/1024}')"
+        else
+            cursize="$(echo "$cursize" | cut -d ' ' -f 1)"
         fi
         totsize="$(echo "$cursize $totsize" | awk '{printf "%f", $1+$2}')"
     done
@@ -235,8 +237,8 @@ cupd_wrap() {
     # final output
     local final_out
     final_out=$(printf "\n%s\n" "$(echo -e "$comb_out" | \
-            cut -d ' ' --complement -f 2,3 | \
-            sort -d | column -t -o "  ")")
+                cut -d ' ' --complement -f 2,3 | \
+                sort -d | column -t -o "  ")")
 
     # perhaps an extra argument for extracting the updates per repo?
     local core_out=""
@@ -322,7 +324,7 @@ main() {
     cupd_wrap && printf "\n"
 
     case $F_NEWS in
-        "normal") get_news && printf "\n";;
+        "normal") get_news;;
         "nil")    ;;
     esac    
 
