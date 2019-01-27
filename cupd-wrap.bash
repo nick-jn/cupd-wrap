@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This is a simple script that refines the output of checkupdates and
 # grabs the latest news from the Arch RSS news feed. The idea is to
@@ -9,6 +9,132 @@
 # just to get the news.
 #
 # Prerequisites: checkupdates (included in pacman-contrib), xmllint (in libxml2).
+
+# Arguments:
+# news="only,nil"
+# syu="noprompt,nil"
+# pacfiles="find,locate,nil"
+# payattention="$PACNAMES"
+
+# global flags for the program
+F_NEWS="normal"  # (normal, only, nil)
+F_SYU="prompt"   # (prompt, noprompt, nil)
+F_PACFILES="nil" # (nil, find, locate)
+
+# for when a "--help, -help, help" arguments are passed
+print_help() {
+    printf "Usage: "
+    printf "cupd-wrap [ARG]=[SINGLE SUB-ARG]\n\n"
+    printf "ARGS      SUB-ARGS (first is default)\n"
+    printf "=====================================\n"
+    printf "news      normal - news are displayed along with updates\n"
+    printf "          only   - display news and quit\n"
+    printf "          nil    - do not display news along with updates\n\n"
+    printf "syu       prompt   - display a (y/N) prompt before launching \"sudo pacman -Syu\"\n"
+    printf "          noprompt - launch \"sudo pacman -Syu\" without a (y/N) prompt\n"
+    printf "          nil      - do not launch \"sudo pacman -Syu\"\n\n"
+    printf "pacfiles  nil    - do not search for *.pacsave/*.pacnew files in /\n"
+    printf "          find   - use find to search for *.pacsave/*.pacnew files in /\n"
+    printf "          locate - use locate to search for *.pacsave/*.pacnew files in /\n\n"
+    printf "Examples:\n"
+    printf "cupd-wrap news=normal syu=nil pacfiles=locate\n"
+    printf "cupd-wrap news=nil syu=nil\n"
+
+    exit 0
+}
+
+# parser for the program's arguments
+parse_main_args() {
+    # this is a simple finite state machine-like parser, it's not very elegant,
+    # but it was easy to implement, and it gets the job done
+    local parser_state="get_top_arg"
+    declare -i set_flag_news=0
+    declare -i set_flag_syu=0
+    declare -i set_flag_pacfiles=0
+    declare -i count=0
+    local args="$*"
+
+    if [[ $args == "" ]]; then
+        return 0
+    fi
+
+    news_arg() {
+        if ((set_flag_news == 1)); then
+            printf "Error, news argument already set\n"
+            exit 1
+        fi
+
+        case $i in
+            "only")   F_NEWS="only";;
+            "nil")    F_NEWS="nil";;
+            "normal") F_NEWS="normal";;
+            *) printf "Invalid argument:\n%s\n" "$i" && exit 1
+        esac
+        parser_state="get_top_arg"
+        set_flag_news=1
+    }
+    
+    syu_arg() {
+        if ((set_flag_syu == 1)); then
+            printf "Error, syu argument already set\n"
+            exit 1
+        fi
+
+        case $i in
+            "noprompt") F_SYU="noprompt";;
+            "nil")      F_SYU="nil";;
+            "prompt")   F_SYU="prompt";;
+            *) printf "Invalid argument:\n%s\n" "$i" && exit 1
+        esac
+        parser_state="get_top_arg"
+        set_flag_syu=1
+    }
+
+    pacfiles_arg() {
+        if ((set_flag_pacfiles == 1)); then
+            printf "Error, pacfiles argument already set\n"
+            exit 1
+        fi
+
+        case $i in
+            "find")   F_PACFILES="find";;
+            "locate") F_PACFILES="locate";;
+            "nil")    F_PACFILES="nil";;
+            *) printf "Invalid argument:\n%s\n" "$i" && exit 1
+        esac
+        parser_state="get_top_arg"
+        set_flag_pacfiles=1
+    }
+
+    top_arg() {
+        case $i in
+            "news")     parser_state="news";;
+            "syu")      parser_state="syu";;
+            "pacfiles") parser_state="pacfiles";;
+            "--help")   print_help;;
+            "-help")    print_help;;
+            "help")     print_help;;
+            *) printf "Invalid argument:\n%s\n" "$i" && exit 1
+        esac
+    }
+
+    IFS=" ="
+    declare -i count=0
+    for i in $args; do
+        ((++count))
+        case $parser_state in
+            "get_top_arg") top_arg;;
+            "news")        news_arg;;
+            "syu")         syu_arg;;
+            "pacfiles")    pacfiles_arg;;
+        esac
+    done
+    unset IFS
+
+    if ((count % 2 != 0)); then
+        printf "Argument not set:\n%s\n" "$i" && exit 1
+    fi
+}
 
 # prints as follows:
 # =============
@@ -26,7 +152,6 @@ fancy_print() {
     }
 
     local str="$1"
-    printf "\n"
     fancy_line "${#str}"
     printf "%s\n" "$str"
     fancy_line "${#str}"
@@ -60,11 +185,11 @@ cupd_wrap() {
 
     local cupd_out
 
-    if [[ $1 == "test" ]]; then
-        cupd_out="$(printf "vim\nbash\nemacs\nlinux\nkitty")"
-    else
+    #if [[ $1 == "test" ]]; then
+    #    cupd_out="$(printf "vim\nbash\nemacs\nlinux\nkitty")"
+    #else
         cupd_out=$(checkupdates)
-    fi
+    #fi
 
     if [[ $cupd_out = "" ]]; then
         echo "No new packages"
@@ -100,19 +225,40 @@ cupd_wrap() {
     IFS=$'\n'
     for i in $comb_out; do
         cursize=$(echo "$i" | cut -d ' ' -f 2,3)
-
-        # generate appropriate conversion multipliers
         if [[ $(echo "$cursize" | awk '{print $2}') = "KiB" ]]; then
             cursize="$(echo "$cursize" | awk '{printf "%f", $1/1024}')"
         fi
-
         totsize="$(echo "$cursize $totsize" | awk '{printf "%f", $1+$2}')"
     done
     unset IFS
 
     # final output
-    printf "\n%s\n" "$(echo -e "$comb_out" | cut -d ' ' --complement -f 2,3 | \
-            sort -d | column -t )"
+    local final_out
+    final_out=$(printf "\n%s\n" "$(echo -e "$comb_out" | \
+            cut -d ' ' --complement -f 2,3 | \
+            sort -d | column -t -o "  ")")
+
+    # perhaps an extra argument for extracting the updates per repo?
+    local core_out=""
+    local extra_out=""
+    local community_out=""
+    local rest_out=""
+    IFS=$'\n'
+    for i in $final_out; do
+        case "$(echo "$i" | cut -d ' ' -f 1)" in
+            "core")      core_out+="$i\n";;
+            "extra")     extra_out+="$i\n";;
+            "community") community_out+="$i\n";;
+            *)           rest_out+="$i\n";;
+        esac
+    done
+    unset IFS
+
+    echo -e "$core_out" | head -c -1
+    echo -e "$extra_out" | head -c -1
+    echo -e "$community_out" | head -c -1
+    echo -e "$rest_out" | head -c -1
+
     printf "\nTotal download size: approx. %.2f MiB\n" "$totsize"
 }
 
@@ -123,10 +269,10 @@ get_news() {
     news="$(curl -s https://www.archlinux.org/feeds/news/ | \
     xmllint --xpath //item/title\ \|\ //item/pubDate /dev/stdin | \
     sed -n 's:.*>\(.*\)<.*:\1:p' | \
-    sed -r "s:&gt;:>:" | \
-    sed -r "s:&lt;:<:" | \
+    sed -r 's:&gt;:>:' | \
+    sed -r 's:&lt;:<:' | \
     sed 's/^[\t ]*//g' | \
-    tr -s " " | \
+    tr -s ' ' | \
     head -n 10)" # multiply the desired amount of news items to be printed by 2
 
     IFS=$'\n'
@@ -144,55 +290,58 @@ get_news() {
 
 # prompts to launch pacman -Syu
 launch_syu() {
-    printf "\nLaunch sudo pacman -Syu? (y/N) "
-    local ch
-    read -r ch
-    if [[ ! $ch == "y" ]] && [[ ! $ch == "Y" ]]; then
-        printf "\nUpdate cancelled.\n"
-        exit
+    if [[ $1 == "prompt" ]]; then
+        printf "\nLaunch sudo pacman -Syu? (y/N) "
+        local ch
+        read -r ch
+        if [[ ! $ch == "y" ]] && [[ ! $ch == "Y" ]]; then
+            printf "\nUpdate cancelled.\n"
+            exit
+        fi
+        printf "\n"
     fi
-    printf "\n"
     sudo pacman -Syu
 }
 
 find_pacfiles() {
-    find_with_find() {
+    if [[ $1 == "find" ]]; then
+        fancy_print "Listing all the .pacnew and .pacsave files in /"
         find / \( -name '*.pacnew' -or -name '*.pacsave' \) -print0 2>/dev/null | xargs -0 ls -lt 
-    }
-
-    fancy_print "Listing all the .pacnew and .pacsave files in /"
-    if [[ ! $(command -v "locate") == "" ]];then
-        if ! updatedb; then
-            printf "Locate found, but failed to update the database. Using find instead.\n\n"
-            find_with_find
-        else
-            locate --existing --regex "\.pac(new|save)$" | xargs ls -lt
-        fi
-    else
-        find_with_find
+    elif [[ $1 == "locate" ]]; then
+        updatedb && locate --existing --regex "\.pac(new|save)$"
     fi
 }
 
 main() {
     check_prereq
-    if [[ $1 == "news" ]]; then
-        get_news
-        exit 0
+
+    if [[ $F_NEWS == "only" ]]; then
+        get_news && exit 0
     fi
 
-    cupd_wrap "$@"
-    get_news
-    launch_syu
-    find_pacfiles
+    cupd_wrap && printf "\n"
 
-    if [[ ! $(command -v "trizen") == "" ]]; then
-        fancy_print "Launching Trizen AUR update"
-        trizen -Sua
-    fi
+    case $F_NEWS in
+        "normal") get_news && printf "\n";;
+        "nil")    ;;
+    esac    
+
+    case $F_SYU in
+        "prompt")   launch_syu "prompt" && printf "\n";;
+        "noprompt") launch_syu && printf "\n";;
+        "nil")      ;;
+    esac    
+
+    case $F_PACFILES in
+        "find")   find_pacfiles "find" && printf "\n";;
+        "locate") find_pacfiles "locate" && printf "\n";;
+        "nil")    ;;
+    esac    
 
     exit 0
 }
 
 ################################################################################
 
-main "$@"
+parse_main_args "$@"
+main
