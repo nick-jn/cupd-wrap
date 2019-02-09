@@ -235,7 +235,7 @@ cupd_wrap() {
     local rest_out=""
     IFS=$'\n'
     for i in $final_out; do
-        case "$(echo "$i" | cut -d ' ' -f 1)" in
+        case "$(echo "$i" | awk '{print $1}')" in
             "core")      core_out+="$i\n";;
             "extra")     extra_out+="$i\n";;
             "community") community_out+="$i\n";;
@@ -244,10 +244,12 @@ cupd_wrap() {
     done
     unset IFS
 
-    echo -e "$core_out" | head -c -1
-    echo -e "$extra_out" | head -c -1
-    echo -e "$community_out" | head -c -1
-    echo -e "$rest_out" | head -c -1
+    final_out=$(echo -e "$core_out")
+    final_out+=$(echo -e "\n$extra_out")
+    final_out+=$(echo -e "\n$community_out")
+    final_out+=$(echo -e "\n$rest_out")
+
+    printf "%s\n" "$final_out"
 
     printf "\nTotal download size: approx. %.2f MiB\n" "$totsize"
 }
@@ -286,7 +288,7 @@ launch_syu() {
         read -r ch
         if [[ ! $ch == "y" ]] && [[ ! $ch == "Y" ]]; then
             printf "\nUpdate cancelled.\n"
-            exit
+            exit 1
         fi
         printf "\n"
     fi
@@ -294,6 +296,7 @@ launch_syu() {
 }
 
 find_pacfiles() {
+    printf "\n"
     fancy_print "Listing all the .pacnew and .pacsave files in /"
     if [[ $1 == "find" ]]; then
         find / \( -name '*.pacnew' -or -name '*.pacsave' \) -print0 2>/dev/null | \
@@ -324,8 +327,8 @@ main() {
     esac
 
     case $F_PACFILES in
-        "find")   find_pacfiles "find" && printf "\n";;
-        "locate") find_pacfiles "locate" && printf "\n";;
+        "find")   find_pacfiles "find";;
+        "locate") find_pacfiles "locate";;
         "nil")    ;;
     esac
 
