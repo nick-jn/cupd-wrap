@@ -10,123 +10,82 @@
 # checkupdates (in pacman-contrib), xmllint (in libxml2).
 
 # global flags for the program
-F_NEWS="normal"  # (normal, only, nil)
-F_SYU="prompt"   # (prompt, noprompt, nil)
-F_PACFILES="nil" # (nil, find, locate)
+F_UPDATES="nil"
+F_NEWS="nil"
+F_SYU="nil"
+F_PACFILES="nil"
 
-# for when a "--help, -help, help" arguments are passed
+# prints help on how to use the program
 print_help() {
-    printf "Usage: "
-    printf "cupd-wrap [ARG]=[SINGLE SUB-ARG]\n\n"
-    printf "ARGS      SUB-ARGS (first is default)\n"
-    printf "=====================================\n"
-    printf "news      normal - news are displayed along with updates\n"
-    printf "          only   - display news and quit\n"
-    printf "          nil    - do not display news along with updates\n\n"
-    printf "syu       prompt   - display a (y/N) prompt before launching \"sudo pacman -Syu\"\n"
-    printf "          noprompt - launch \"sudo pacman -Syu\" without a (y/N) prompt\n"
-    printf "          nil      - do not launch \"sudo pacman -Syu\"\n\n"
-    printf "pacfiles  nil    - do not search for *.pacsave/*.pacnew files in /\n"
-    printf "          find   - use find to search for *.pacsave/*.pacnew files in /\n"
-    printf "          locate - use locate to search for *.pacsave/*.pacnew files in /\n\n"
+    printf "Usage: cupd-wrap [ARGS]\n"
+    printf "=======================\n"
+    printf "updates              execute the checkupdates wrapper module\n"
+    printf "news                 fetch and display the latest Arch news\n"
+    printf "syu       =prompt    display a (y/N) prompt before launching \"sudo pacman -Syu\"\n"
+    printf "          =noprompt  launch \"sudo pacman -Syu\" without a (y/N) prompt\n"
+    printf "pacfiles  =find      use find to search for *.pacsave/*.pacnew files in /\n"
+    printf "          =locate    use locate to search for *.pacsave/*.pacnew files in /\n\n"
     printf "Examples:\n"
-    printf "cupd-wrap syu=noprompt pacfiles=locate\n"
-    printf "cupd-wrap news=nil syu=nil\n"
+    printf "=========\n"
+    printf "cupd-wrap updates news syu=noprompt pacfiles=locate\n"
+    printf "cupd-wrap news\n"
 
     exit 0
 }
 
 # parser for the program's arguments
 parse_main_args() {
-    # this is a simple finite state machine-like parser, it's not very elegant,
-    # but it was easy to implement, and it gets the job done
-    local parser_state="get_top_arg"
-    declare -i set_flag_news=0
-    declare -i set_flag_syu=0
-    declare -i set_flag_pacfiles=0
-    declare -i count=0
+    declare -i setflag_syu=0
+    declare -i setflag_pacfiles=0
     local args="$*"
 
     if [[ $args == "" ]]; then
-        return 0
+        print_help && exit 1
     fi
 
-    news_arg() {
-        if ((set_flag_news == 1)); then
-            printf "Error, news argument already set\n"
-            exit 1
+    check_setflag() {
+        if [[ $1 == 1 ]]; then
+            printf "Error, argument for %s was already set\n" "$2" && exit 1
         fi
-
-        case $i in
-            "only")   F_NEWS="only";;
-            "nil")    F_NEWS="nil";;
-            "normal") F_NEWS="normal";;
-            *) printf "Invalid argument:\n%s\n" "$i" && exit 1
-        esac
-        parser_state="get_top_arg"
-        set_flag_news=1
-    }
-    
-    syu_arg() {
-        if ((set_flag_syu == 1)); then
-            printf "Error, syu argument already set\n"
-            exit 1
-        fi
-
-        case $i in
-            "noprompt") F_SYU="noprompt";;
-            "nil")      F_SYU="nil";;
-            "prompt")   F_SYU="prompt";;
-            *) printf "Invalid argument:\n%s\n" "$i" && exit 1
-        esac
-        parser_state="get_top_arg"
-        set_flag_syu=1
     }
 
-    pacfiles_arg() {
-        if ((set_flag_pacfiles == 1)); then
-            printf "Error, pacfiles argument already set\n"
-            exit 1
-        fi
-
-        case $i in
-            "find")   F_PACFILES="find";;
-            "locate") F_PACFILES="locate";;
-            "nil")    F_PACFILES="nil";;
-            *) printf "Invalid argument:\n%s\n" "$i" && exit 1
-        esac
-        parser_state="get_top_arg"
-        set_flag_pacfiles=1
-    }
-
-    top_arg() {
-        case $i in
-            "news")     parser_state="news";;
-            "syu")      parser_state="syu";;
-            "pacfiles") parser_state="pacfiles";;
-            "--help")   print_help;;
-            "-help")    print_help;;
-            "help")     print_help;;
-            *) printf "Invalid argument:\n%s\n" "$i" && exit 1
-        esac
-    }
-
-    IFS=" ="
-    declare -i count=0
+    IFS=" "
     for i in $args; do
-        ((++count))
-        case $parser_state in
-            "get_top_arg") top_arg;;
-            "news")        news_arg;;
-            "syu")         syu_arg;;
-            "pacfiles")    pacfiles_arg;;
-        esac
+        case $i in
+            "updates")         F_UPDATES="yes";;
+            "news")            F_NEWS="yes";;
+
+            "syu")             printf "Please provide a sub-argument for syu\n"
+                               exit 1
+                               ;;
+            "syu=prompt")      check_setflag "$setflag_syu" "syu"
+                               setflag_syu=1
+                               F_SYU="prompt"
+                               ;;
+            "syu=noprompt")    check_setflag "$setflag_syu" "syu"
+                               setflag_syu=1
+                               F_SYU="noprompt"
+                               ;;
+
+            "pacfiles")        printf "Please provide a sub-argument for pacfiles\n"
+                               exit 1
+                               ;;
+            "pacfiles=find")   check_setflag "$setflag_pacfiles" "pacfiles"
+                               setflag_pacfiles=1
+                               F_PACFILES="find"
+                               ;;
+            "pacfiles=locate") check_setflag "$setflag_pacfiles" "pacfiles"
+                               setflag_pacfiles=1
+                               F_PACFILES="locate"
+                               ;;
+
+            "--help")          print_help;;
+            "-help")           print_help;;
+            "help")            print_help;;
+            *)                 printf "Invalid argument:\n%s\n" "$i" && exit 1;;
+         esac
     done
     unset IFS
-
-    if ((count % 2 != 0)); then
-        printf "Argument not set:\n%s\n" "$i" && exit 1
-    fi
 }
 
 # prints as follows:
@@ -194,7 +153,7 @@ cupd_wrap() {
     done
     unset IFS
 
-    printf "%d new packages found\n" "$pacnum"
+    printf "%d new packages found:\n" "$pacnum"
 
     # extract the relevant info from pacman -Si
     local psi_out
@@ -283,20 +242,20 @@ get_news() {
 # prompts to launch pacman -Syu
 launch_syu() {
     if [[ $1 == "prompt" ]]; then
-        printf "\nLaunch sudo pacman -Syu? (y/N) "
+        printf "Launch sudo pacman -Syu? (y/N) "
         local ch
         read -r ch
         if [[ ! $ch == "y" ]] && [[ ! $ch == "Y" ]]; then
-            printf "\nUpdate cancelled.\n"
-            exit 1
+            printf "\nUpdate cancelled.\n" && exit 1
         fi
-        printf "\n"
+        sudo pacman -Syu
+    elif [[ $1 == "noprompt" ]]; then
+        sudo pacman -Syu
     fi
-    sudo pacman -Syu
 }
 
+# performs a search for .pacnew and .pacsave files in /
 find_pacfiles() {
-    printf "\n"
     fancy_print "Listing all the .pacnew and .pacsave files in /"
     if [[ $1 == "find" ]]; then
         find / \( -name '*.pacnew' -or -name '*.pacsave' \) -print0 2>/dev/null | \
@@ -309,27 +268,33 @@ find_pacfiles() {
 }
 
 main() {
-    if [[ $F_NEWS == "only" ]]; then
-        get_news && exit 0
-    fi
+    local run_flag=0 # used for printing newlines between commands
 
-    cupd_wrap && printf "\n"
+    newl() {
+        if [[ $run_flag == 1 ]]; then
+            printf "\n"
+            run_flag=0
+        fi
+    }
+
+    case $F_UPDATES in
+        "yes") cupd_wrap && run_flag=1;;
+        "nil") ;;
+    esac
 
     case $F_NEWS in
-        "normal") get_news;;
-        "nil")    ;;
+        "yes") newl && get_news && run_flag=1;;
+        "nil") ;;
     esac
 
     case $F_SYU in
-        "prompt")   launch_syu "prompt";;
-        "noprompt") launch_syu;;
-        "nil")      ;;
+        "prompt")   newl && launch_syu "prompt"   && run_flag=1;;
+        "noprompt") newl && launch_syu "noprompt" && run_flag=1;;
     esac
 
     case $F_PACFILES in
-        "find")   find_pacfiles "find";;
-        "locate") find_pacfiles "locate";;
-        "nil")    ;;
+        "find")   newl && find_pacfiles "find";;
+        "locate") newl && find_pacfiles "locate";;
     esac
 
     exit 0
