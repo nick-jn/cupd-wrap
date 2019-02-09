@@ -20,6 +20,7 @@ print_help() {
     printf "Usage: cupd-wrap [ARGS]\n"
     printf "=======================\n"
     printf "updates              execute the checkupdates wrapper module\n"
+    printf "                     (exits with code 1 if there are no new packages)\n"
     printf "news                 fetch and display the latest Arch news\n"
     printf "syu       =prompt    display a (y/N) prompt before launching \"sudo pacman -Syu\"\n"
     printf "          =noprompt  launch \"sudo pacman -Syu\" without a (y/N) prompt\n"
@@ -139,7 +140,7 @@ cupd_wrap() {
     cupd_out=$(checkupdates)
     if [[ $cupd_out = "" ]]; then
         echo "No new packages"
-        exit
+        exit 1
     fi
 
     # calculate the number of packages, extract

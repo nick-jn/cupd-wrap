@@ -11,6 +11,7 @@ Prerequisites: checkupdates (in pacman-contrib), xmllint (in libxml2).
     Usage: cupd-wrap [ARGS]
     =======================
     updates              execute the checkupdates wrapper module
+                         (exits with code 1 if there are no new packages)
     news                 fetch and display the latest Arch news
     syu       =prompt    display a (y/N) prompt before launching "sudo pacman -Syu"
               =noprompt  launch "sudo pacman -Syu" without a (y/N) prompt
@@ -19,7 +20,7 @@ Prerequisites: checkupdates (in pacman-contrib), xmllint (in libxml2).
     
     Examples:
     =========
-    cupd-wrap updates news syu=noprompt pacfiles=locate
+    cupd-wrap updates news syu=noprompt pacfiles=find
     cupd-wrap news
 
 Use at your own risk.
